@@ -7,25 +7,28 @@
 void *func(int n);
 pthread_t philosopher[5];
 pthread_mutex_t chopstick[5];
+static sem_t room;
 
 int main()
 {
      int i;
      void *msg;
-     for(i=1;i<=5;i++)
+     sem_init(&room, 0, 4);
+     for(i=0;i<5;i++)
      {
           pthread_mutex_init(&chopstick[i],NULL);
      }
-     for(i=1;i<=5;i++)
+     for(i=0;i<5;i++)
      {
+          sem_wait(&room);
           pthread_create(&philosopher[i],NULL,(void *)func,(int *)i);
      }
-     for(i=1;i<=5;i++)
+     for(i=0;i<5;i++)
      {
           pthread_join(philosopher[i],&msg);
      }
      printf("\n");
-      for(i=1;i<=5;i++)
+      for(i=0;i<5;i++)
       {
           pthread_mutex_destroy(&chopstick[i]);
       }
@@ -44,4 +47,5 @@ void *func(int n)
      pthread_mutex_unlock(&chopstick[n]);
      pthread_mutex_unlock(&chopstick[(n+1)%5]);
      printf ("\nPhilosopher %d finished eating ",n);
+     sem_post(&room);
 }
