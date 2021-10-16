@@ -75,3 +75,37 @@ task structure => Process Control Block 에서 system context의 파일이라던
  # Process Group
  > 한 개 또는 그 이상의 Collection, 각 프로세스 그룹은 unique한 PGID를 가지고 있다. <span style="color:Yellow">각 프로세스 그룹은 PID가 PGID와 같은 프로세스 그룹 리더를 가지고 있다.</span> 프로세스 그룹은 그룹 내에 리더가 존재하지 않아도 하나의 프로세스라도 존재하면 그룹은 존재한다.
 
+<br>
+
+# THREAD
+
+> 프로세스는 OS에 의해 생성된다. 프로세스는 프로그램 resource에 대한 정보, 프로그램 실행 상태를 포함하고 있다.<br> 
+무엇을 포함하고 있을까?
+
+* Process ID, Process Group ID, user ID, group ID
+* Environment
+* Working directory, Program instructions, Registers
+* Stack, Heap, File descriptors, Signal Actions, Shared libraries, IPC tools
+
+### <span style="color:Yellow">System call, 자주 호출하면 좋지 않다. Why? OS의 Kernel에 서비스를 요청할 때에 호출하는 함숭ㄴ데, 이들은 hardware와 관련된 서비스나 프로세스의 생성/종료, 파일의 I/O등을 처리하며 kernel 모드로 실행되기 때문이다.</span>
+
+> Process, 실행 상태에 있는 프로그램의 인스턴스 자원 소유, Container의 역할, Thread-> 프로세스의 실행단위, 프로세스의 실행 흐름, 주소 공간이나 열린 파일 등 여러 자원을 공유하며, 쓰레드간 공유 자원 접근 시 동기화가 필요하다. 스레드는 프로세스 자원들을 사용하며, 프로세스 내 독립적인 객체로서 실행되고 OS에 의해 Scheduling 된다.
+
+## Thread 특징
+* Text Section, Data Section, Heap Section 및 file을 공유한다. 하지만, Stack 영역 및 Cpur Register는 별도로 가지고 있습니다.
+
+## Thread를 사용하는 이유는 무엇일까?
+* Parallel Processing의 효율화
+* Performance 향상
+* 새로운 프로세스 형성은 OS의 Context Switching 호출을 피할 수 없으며 큰 Memory를 차지한다.
+* IPC의 cost의 비용이 비싸다.
+* Thread들 또한 Client의 Request들을 다룰 수 있다.
+* I/O 작업에도 달느 스레드들은 Blocking 되지 않고 일을 수행한다.
+
+# User-level Thread 와 kernel-level Thread
+> User-level threads들은 user space에서 실행되는데, runtime library에 의해 생성된다. 따라서 Kernel과 관련된 명령을 수행할 수 없으며, Kernel은 이 Thread들의 존재를 알 수 없다. 장점으로는 User-level 라이브러리가 성능 최적화를 위해 스레드들을 스케줄링 할 수 있으며, library만 존재하면 어떤 OS든 위에서 수행이 가능하며, Context-switch를 피할 수 있다.<br>단점으로는 Kernel이 Thread들로 바라보는게 아닌 single Process로 바라보기에 멀티스레딩의 장점을 가질 수 없다. ex) I/O작업 시, 하나의 프로세스를 보기에 Block 상태를 만든다.
+
+> Kernel-level Thread들은 Kernel이 Thread들의 존재를 알 고 있습니다. 각 스레드 마다 Kernel이 자료구조를 가지고 있으며, 하나의 실행 Context로 바라봅니다. 따라서, 멀티스레딩의 장점을 가지고 있으며 단점으로는 Context Switching 시 발생하는 Overhead가 존재합니다.
+
+# Thread Programming 의 어려움
+> 복잡한 알고리즘 디자인과 data 동기화에 대해 Programmer들이 고려하며 수행해줘야한다. Debug와 Test에 대한 어려움도 존재하며 Race Condition에 대해 고려해야 합니다. Thread의 병행 처리에 대해 공유자원에 대해서 발생할 수 있는 문제점들이 존재하며, 운영체제와 관련된 Dead Lock 등 .. 고려해야 할 사항들이 많다.
