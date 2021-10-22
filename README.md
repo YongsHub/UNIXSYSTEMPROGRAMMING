@@ -87,7 +87,7 @@ task structure => Process Control Block 에서 system context의 파일이라던
 * Working directory, Program instructions, Registers
 * Stack, Heap, File descriptors, Signal Actions, Shared libraries, IPC tools
 
-### <span style="color:Yellow">System call, 자주 호출하면 좋지 않다. Why? OS의 Kernel에 서비스를 요청할 때에 호출하는 함숭ㄴ데, 이들은 hardware와 관련된 서비스나 프로세스의 생성/종료, 파일의 I/O등을 처리하며 kernel 모드로 실행되기 때문이다.</span>
+### <span style="color:Yellow">System call, 자주 호출하면 좋지 않다. Why? OS의 Kernel에 서비스를 요청할 때에 호출하는 함수인데, 이들은 hardware와 관련된 서비스나 프로세스의 생성/종료, 파일의 I/O등을 처리하며 kernel 모드로 실행되기 때문이다.</span>
 
 > Process, 실행 상태에 있는 프로그램의 인스턴스 자원 소유, Container의 역할, Thread-> 프로세스의 실행단위, 프로세스의 실행 흐름, 주소 공간이나 열린 파일 등 여러 자원을 공유하며, 쓰레드간 공유 자원 접근 시 동기화가 필요하다. 스레드는 프로세스 자원들을 사용하며, 프로세스 내 독립적인 객체로서 실행되고 OS에 의해 Scheduling 된다.
 
@@ -109,3 +109,92 @@ task structure => Process Control Block 에서 system context의 파일이라던
 
 # Thread Programming 의 어려움
 > 복잡한 알고리즘 디자인과 data 동기화에 대해 Programmer들이 고려하며 수행해줘야한다. Debug와 Test에 대한 어려움도 존재하며 Race Condition에 대해 고려해야 합니다. Thread의 병행 처리에 대해 공유자원에 대해서 발생할 수 있는 문제점들이 존재하며, 운영체제와 관련된 Dead Lock 등 .. 고려해야 할 사항들이 많다.
+
+
+# POSIX Thread Programming
+
+요즘 CPU는 MultiCore를 이용하고 있고, 멀티스레드 프로그래밍은 이러한 <span style="color:yellow">멀티코어의 장점을 극대화 할 수 있다.</span> Serial Processing, Interleaving Processing, Overlapping 즉, Parallel Processing에 대해 이해하고 있어야 한다.
+* 우리가 알아야 할 점은 text/data/heap/file 들을 공유하기 때문에 Race Condition 발생확률이 높다. 따라서 이 부분을 Serialize하게 만들어야 한다.
+
+* Pthread(POSIX Thread)는 SingleUnixSystemVersion에 pthread가 들어있다.
+* Compile시, -lpthread를 함께 해야 합니다.
+* 리눅스에서의 Pthread는 Kernel level thread 입니다.
+
+## Pthread API
+* 기본적으로 CREATING, DETACHING, JOINING 과 같은 기본
+* 동기화를 위한 Mutex 동기화 함수로서 -> Creating, Destroying, locking and unlocking이 존재한다.
+* Condition Variable, 스레드들간에 mutex를 공유하며 의사소통하기 위함 : create, destroy, wait 등등
+* POSIX는 C Language에 정의되어 있습니다.
+
+> Pthread_create : thread를 생성<br>Pthread_exit : process를 종료하지 않고, Thread만 종료<br>Pthread_kill : thread에게 signal을 보냅니다. <br> Pthread_detach : thread가 자원을 해제하도록 설정 <br> Pthread_equal: 두 thread ID가 동일한지 검사 <br> Pthread_self : 자신의 thread ID를 얻음 <BR> Pthread_cancel : 다른 thread의 수행을 취소
+
+pthread_create(thread,attr,start_routine,arg)의 return 은 각 스레다마다 ID를 받는다.
+* attr: thread 속성 set, NULL은 default values
+* start_routine : 실행을 시키고자 하는 함수명
+* arg : start_routine의 매개변수, void 타입의 포인터로써 처리되야 한다. 여러 변수들인 경우, 구조체로 묶어서 void pointer로 보내야 합니다.
+
+## Pthread가 종료되는 경우
+* starting function으로부터 return
+* thread가 pthread_exit 함수를 호출했을 때
+* thread가 다른 pthread_cancel로부터 취소되었을 때
+* entire process가 terminated되었을 때 / exec() or exit
+* pthread_exit() 루틴은 file을 닫지 않습니다. thread 안에서 오픈된 파일은 스레드가 종료된 이후에도 open된 상태로 남아있습니다.<br>
+
+## Manager/Worke Model
+스레드를 생성하는 경우에도 오버헤드가 존재하기 때문에 Thread Pool을 이용할 수 있습니다. manager는 run-time overhead를 절약할 수 있습니다. 스레드를 생성해두고 work queue에 저장, block된 상태로 대기를 하다가 signal을 통해서 깨울수 있다.
+
+## Thread Safeness
+> Thread를 생성하는 것은 매우 쉬운 Part이다. 하지만 데이터를 공유하는 것은 어렵습니다. Global Variable을 공유하는 것은 위험합니다. 두개 스레드가 같은 변수를 수정하려고 하면 Race Condition이 발생할 가능성이 있기 때문입니다. 예를 들어, Application은 몇몇 스레드를 생성할 수 있는데, 같은 library routine을 호출한다고 가정합니다. library routine은 global structure나 메모리 위치를 접근할 수 있다/각 스레드는 이 루틴을 부를 수 있고, 동시간에 global structure 및 메모리 위치를 수정할 수 있습니다. 따라서, <span style="color:yellow">동기화하지 않으면 문제가 발생합니다.</span>
+
+## Thread Synchronization Tool
+> pthread_join 함수와 Mutex 변수를 활용하여 Lock<BR>Reader/Writer exclusion -> Read에 대해서는 여러 개 있어도 되지만 Write일 경우 상호배제가 필요하다.
+
+## Mutex Variable
+> 보호하고 싶은 자원을 위해 Mutex Variable을 생성하고 초기화해야함.<br>스레드가 자원을 접근할 때, pthread_mutex_lock을 이용하여 자원의 mutex를 lock 해야한다. 오직 하나의 스레드만 mutex lock을 할 수 있고, 나머지는 기다려야만 한다.<br>스레드가 자원에 대한 작업이 끝났을 때, pthread_mutex_unlock을 호출하여 mutex를 unlock할 수 있다.
+
+* Mutex variable은 선언 후, 반드시 초기화 되어야 한다.
+## 초기화 2가지 방법 예제
+* pthread_mutex_t mymutex = THREAD_MUTEX_INITIALIZER;
+* pthread_mutex_init(mutex, attr);
+* mutex는 처음에는 unlock상태 이다.
+> pthread_mutex_lock() 정해진 mutex variable에 의해 lock을 할 수 있다. 만약, <span style="color:yellow">mutex가 다른 스레드에 의해 이미 locked되었다면, 이것은 호출한 스레드를 block합니다.(mutex가 unlock될때까지)</span>
+
+## pthread_mutex_trylock()
+>다른 스레드가 이미 mutex를 hold하고 있을때 mutex접근을 시도하면 block되지 않고 바로 return 되는데 lock을 획득할때까지 Running 상태로 머무릅니다. spin lock이라고도 부릅니다.<br>일반 lock일 경우, Block 상태로 대기하다가 Ready상태로 돌아간 후, 실행되는 Overhead가 존재하지만, 멀티스레드 환경에서 Block 상태로 대기가 아닌 Running상태에서 lock을 획득할때까지 계속 return하게 된다.
+
+## Condition Variables
+>Thread간의 synchronization을 위해 사용합니다.<br>어떤 기다리는 조건이 만족되었음을 다른 thread에게 알림으로써 동기화<br>Condition variable은 항상 mutex lock과 연계해서 사용<br>Condition variable은 pthread_cond_t type 선언
+
+
+<br><br>
+# Waiting/Signalling On Conditional Variables
+
+>pthread_cond_wait(condition,mutex);<br>pthread_cont_timedwait(condition,mutex);<br>pthread_cond_singal(condition);<br>pthread_cond_broadcast(condition);
+
+>pthread_cond_wait()는 condition이 signal 될때까지 block되는 함수이다.<span style="color:yellow">이 함수는 반드시 mutex가 lock된 상태에서 호출되어야 하며, 호출되면 자동으로 mutex를 unlock하고 대기합니다.</span> Signal에 의해 깨어날 때에는 mutex는 다시 lock이 걸린 상태입니다.<br>pthread_cond_signal()은 pthread_cond_wait()로 대기하는 thread를 wakeup하는 함수입니다. 이 함수 또한 lock된 상태에서 호출되어야 합니다.<br>pthread_cond_broadcast()는 condition에서 대기하는 여러 thread를 모두 깨울 때 사용합니다.<br>pthread_cond_wait()에 의한 대기 thread가 없는 상태에서의 pthread_cond_signal() 호출은 no action
+
+* Condition Variable에서 여러 쓰레드들이 기다리고 있다면, pthread_cond_signal call을 받는다면 누가 먼저 깨어날까?
+* Scheduling 우선순위 또는 First-in First-Out
+
+# Reader/Writer Lock
+
+>initialize read/write lock => pthread_rwlock_init<br>read lock 얻는 방법<br>pthread_rwlock_rdlock<br> pthread_rwlock_tryrdlock<br>pthread_rwlock_timedrdlock<br>write lock을 얻는 방법<br>pthread_rwlock_wrlock<br>pthread_rwlock_trywrlock<br>pthread_rwlock_timedwrlock
+<br>read/write lock 푸는 방법<br>pthread_rwlock_unlock<br>read/write lock 제거방법<br>pthread_rwlock_destroy
+
+## Mutex에 대해....
+유명하고 이해하기 쉽지만, 프로그래머들이 unlock에 대해 까먹거나 다른 스레드가 lock을 사용했다는 것을 잊거나, mutex를 포함하고 있는 프로그램들을 이해하기 어려운 점들도 있습니다.
+
+<br>
+
+# Semaphore
+mutex는 busy-waiting을 초래하고, 오직 "상호 배제"에 사용되며 공유를 할 수 없다는 점, 공평성 또한 보장하기 어렵다.
+>2가지 속성으로 변수를 공유하는데, 정수 값으로 n으로 지정한 스레드만큼 세마포어를 공유할 수 있습니다. 세마포어에 대해 기다리는 스레드들의 list가 존재, FIFO를 보장합니다.
+
+
+
+## Unnamed Semaphores과 Named Semaphores
+* Unnamed는 스레드들과 연관 있는 프로세스에게 동기화를 제공하며, sem_init을 사용합니다.
+* Named는 연관있는 스레드들과 프로세스들 뿐만 아니라 연관없는 프로세스들에게도 동기화를 제공합니다. Kernel에 영속적(데이터를 생성한 프로그램 실행이 종료되어도 사라지지 않는 데이터 특성) 이며, sem_open을 사용합니다.
+> sem_init(sem_t* sem, int pshared, unsigned int value);<br>pshared값이 0이면 프로세스 내 스레드들만 이용가능하다.<br>int sem_wait(sem_t *sem);<br>lock을 거는 것<br>int sem_post(sem_t *sem);<br>unlock 해주는 것 <br>int sem_destroy(sem_t *sem);
+
+
