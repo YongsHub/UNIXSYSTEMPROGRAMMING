@@ -218,4 +218,46 @@ mutex는 busy-waiting을 초래하고, 오직 "상호 배제"에 사용되며 �
 * Named는 연관있는 스레드들과 프로세스들 뿐만 아니라 연관없는 프로세스들에게도 동기화를 제공합니다. Kernel에 영속적(데이터를 생성한 프로그램 실행이 종료되어도 사라지지 않는 데이터 특성) 이며, sem_open을 사용합니다.
 > sem_init(sem_t* sem, int pshared, unsigned int value);<br>pshared값이 0이면 프로세스 내 스레드들만 이용가능하다.<br>int sem_wait(sem_t *sem);<br>lock을 거는 것<br>int sem_post(sem_t *sem);<br>unlock 해주는 것 <br>int sem_destroy(sem_t *sem);
 
+<br>
 
+
+# Time Management
+* time 명령어
+* Epoch 이후의 흐른 초 표시 time() 함수
+* 날짜와 시간 표시 (ctime() 함수)
+* gettimeofday() ms 단위 표시 가능한 함수
+* clock_gettime() ns 단위 즉 더 세분화된 함수
+
+>$time 프로그램명<br>출력되는 내용 : Real, User, System <br>Real은 프로그램 시작해서 종료될 때 까지 걸린 시간을 의미<br>User은 User 영역에서 실행된 시간 <br> System은 kernel 영역에서 실행된 시간<br> 일반적으로 Real > User + System 이지만 병렬적으로 처리될 때 System의 Overhead가 존재하므로 Real < User + System인 경우도 있다.
+
+### Epoch : 1970년 1월 1일 0시 0분 0초
+time() 함수 시간을 Epoch 이후의 초 단위로 저장하고, 할는 정확히 86,400초로 나누어서 계산합니다. 이 때, difftime() 함수는 두 달력시간의 차를 계산하는 함수입니다.
+
+* ctime(const time_t * clock) 함수 : Epoch 이후의 시간을 초 단위 시간을 매개변수로 취해, 시간을 나타내는 구성요소로 구성된 구조체를 문자열로 저장하는데 날짜와 시간표시가 됩니다.
+
+* clock_gettime() 함수 : Epoch 이후의 시간을 초와 나노 초로 표시되는 시간으로 출력한다.
+
+# pipe를 이용한 프로세스간 통신
+초창기에는 물리 메모리에 대해 메모리 접근이 가능했다. 옛날에는 IPC 기법을 이런식으로 사용했는데, 각 프로세스들이 값을 바꾸거나 다른 결과를 초래하거나, TEXT SECTION을 수정하거나, OS를 건들인다면? 심각한 문제를 만들 것이다.<BR>이후, 메모리 영역을 Memory Protection을 확실히 하였습니다. 다른 영역을 접근하려고 하면 Memory Fault/Segment Fault를 일으키며 따라서 나온 것이 IPC(Inter Process Communication)입니다.<br> pipe(file)을 이용하는 방법이 대표적으로 있는데, 오래 걸린다는 점이 있다.<br>진화하면서, System V에서 Advanced IPC -> Shared Memory 초창기와 다르게 os에 요청하여 허용이 되는 경우에만 메모리 공유(물리메모리를 논리적으로) 제어된 형태로 접근합니다. 또는 Message Passing 기법도 있습니다. (Message Queue를 활용하여 Key값으로 queue를 구분)
+
+>파이프 : 한 프로세스를 다른 관련된 프로세스에 연결시켜주는 단방향의 통신 채널입니다. 예를 들어 pr doc | lp 명령어는 
+<br>pr doc > tmpfile <br> lp > tmpfile <br> rm tmpfile과 같이 처뢰되며,자료의 흐름은 자동적으로 보이지 않게 처리함 int pipe(int filedes[2]); Return filedes[0] : read pipe filedes[1] : write pipe
+
+## 파이프의 크기
+* 유한합니다. 파이프에 들어있는 자료가 일정량을 초과하면 그 후의 write는 봉쇄됩니다.
+* 최소 512Byte
+* 대부분의 시스템은 훨씬 큰 파이프 크기를 가짐
+
+## 파이프의 read, write는 프로세스를 지연시킬 수 있음.
+* 파이프가 꽉 차면 write는 수행이 중단된다.(BLOCK 상태)
+* 프로세스에 의해 자료가 읽혀져 파이프에 충분한 공간이 마련될때 까지 수행이 일시 중단된다.
+* 파이프가 비어있으면 read 또한 block 됩니다.
+* 부모와 자식 간의 파일 디스크립터는 공유한다는 사실을 잘 기억하자!
+
+## Pipe 닫기
+* write 파이프를 닫았을 때, 파이프에 대한 read는 파일의 끝에 도달한 것과 마찬가지로 0을 return
+* read 파이프를 닫았을 때, 이 파이프에 write를 시도하는 모든 프로세스는 커널로부터 SIGPIPE 시그널을 받습니다. 이러한 경우, write 하는 프로세스는 SIGPIPE의 Default Action으로 termination 합니다.
+
+## Non-Blocking 구현하는 방법
+* fctnl(열려 있는 파일에 대한 설정)
+* fctnl(filedes, F_SETFL, O_NONBLOCK)
