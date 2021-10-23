@@ -77,6 +77,27 @@ task structure => Process Control Block 에서 system context의 파일이라던
 
 <br>
 
+# Session
+>각 프로세스 그룹은 하나의 세션에 소속합니다. 또한 각 세션은 하나의 제어 단말기 즉 <span style="color:Yellow">Controlling Terminal</span>을 가집니다. 한 세션은 하나의 foreground process group과 하나 또는 그 이상의 background process group으로 구성됩니다.
+
+<BR><BR>
+
+## Daemon Process
+setsid를 사용해서 만들어진 새로운 세션내에는 background process group만 존재한다고 생각하면 이해하기 편하다. 그리고 일반적으로 서버로 동작하는 process인 경우 setsid를 이용하여 새로운 세션을 생성하는데 보통 하나의 process로 존재하게 되는데
+이 프로세스를 daemon rocess라고 부른다고 생각하면 이해하기 쉽다. 즉 background process group에 존재하는 background process가 daemon process라고 생각하면 좋다.
+* Daemon Process는 controlling terminal을 갖지 않는 프로세스
+* setsid()를 사용하여 생성된다.
+
+## setsid()
+>setsid를 호출하는 프로세스는 새로운 세션의 리더이다.<br>함수 호출하는 프로세스는 새로운 프로세스 그룹의 그룹 리더 입니다.<br>위에서 설명했듯, Daemon Process로 생각하면 이해하기 쉬우며 Controlling Terminal을 갖지 않습니다.<br>Process Group ID & Seesion ID는 호출한 프로세스 PID로 맞추어집니다.<BR>호출한 프로세스가 새로운 프로세스 그룹과 새로운 세션의 유일한 프로세스이다.
+
+## getsid()
+>getsid(pid_t pid); -> 프로세스 ID를 매개변수로 이용하면 그 프로세스가 속한 session ID가 return 됩니다. getsid(0);은 calling process의 세션 ID가 return 됩니다.
+
+## Controlling Terminal
+>controlling terminal은 보통 터미널 장치이다. 세션은 하나의 controlling terminal을 가질 수 있습니다. 세션 리더는 controlling porcess(제어 프로세스)라 불리며 controlling terminal과 연결됩니다. 또한 세션 내  하나의 foreground group과 하나 이상의 background process group이 존재하는데, hang-up 시그널이 세션 리더 즉 제어 프로세스에게 보내집니다.
+<br>
+
 # THREAD
 
 > 프로세스는 OS에 의해 생성된다. 프로세스는 프로그램 resource에 대한 정보, 프로그램 실행 상태를 포함하고 있다.<br> 
