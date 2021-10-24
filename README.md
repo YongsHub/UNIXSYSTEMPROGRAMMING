@@ -261,3 +261,25 @@ time() 함수 시간을 Epoch 이후의 초 단위로 저장하고, 할는 정�
 ## Non-Blocking 구현하는 방법
 * fctnl(열려 있는 파일에 대한 설정)
 * fctnl(filedes, F_SETFL, O_NONBLOCK)
+BLOCK 되지 않은 상태로 계속 TRY할 수 있다는 점이 있다.
+
+## 다수의 파이프를 취급하기 위한 Select 사용하기
+* 우리는 흔히 I/O Multiplexing 이라고 들어봤을 것이다. Server-Client 모델에서 여러 Client가 실시간으로 접근할 때 서버의 입장에서 한번에 처리해주지 못하고 Sequential 하게 처리하기 때문에 새로운 요청이 들어와도 순차적으로 다음 것을 처리 후 순서대로 처리한다. Network에서는 Socket을 이용하여 메시지를 송수신하지만, 우리는 UNIX에서 Pipe를 Socket 처럼 생각하면 된다. 따라서 다수의 파이프를 취급하기 위해 select를 사용하면 된다.(파일, terminal, FIFO, Socket등에 사용가능)
+
+* int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *errorfds, struct timeval * timeout);
+* nfds : select 호출에서 검새해야할 파일 기술자의 개수
+* readfds, writefds, errorfds : fd_set 비트마스크에 대한 포인터
+* timeout: struct timeval에 대한 포인터
+
+>비트 조작 매크로<br>void FD_ZERO(fd_set *fdset); fdset이 가리키는 마스크를 초기화 합니다.<br>void FD_SET(int fd, fd_set *fdset); fdset에 fd를 넣어서 1로 설정<BR>int FD_ISSET(int fd, fd_set *fdset); fdset이 가리키는 마스크내의 비트, fd가 설정되어 있는지 확인하기 위해서<br>void FD_CLR(int fd, fd_set *fdset); fdset이 가리키는 fd에 대해 비트를 0으로 한다.
+
+## Unnamed pipe의 단점
+* 부모와 자식 프로세스들을 연결하는 데만 사용할 수 있다.
+* 영구히 존재할 수 없으며, Temperory File로 이용함.
+
+## Named pipe
+* 임의의 두 프로세스를 연결할 수 있다.
+* 영구적입니다.
+* UNIX 파일 이름을 부여 받습니다. <br>EX) prw-rw-r-- 1 ben usr 0 Aug 1 21:05 channel
+* FIFO 생성 명령어: /etc/mknod channel p
+* 명령어 수준에서 FIFO를 사용하는 예<BR> cat < channel & <br>ls -l > channel; wait
