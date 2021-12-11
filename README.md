@@ -283,3 +283,97 @@ BLOCK 되지 않은 상태로 계속 TRY할 수 있다는 점이 있다.
 * UNIX 파일 이름을 부여 받습니다. <br>EX) prw-rw-r-- 1 ben usr 0 Aug 1 21:05 channel
 * FIFO 생성 명령어: /etc/mknod channel p
 * 명령어 수준에서 FIFO를 사용하는 예<BR> cat < channel & <br>ls -l > channel; wait
+
+
+# 고급 프로세스간  IPC 기법
+
+* Record Locking
+* Advanced Inter Process Communication
+ >-Message Passing<br>-Semaphore<br>-Shared Memory
+
+## Record Locking 이란?
+현재 사용중인 파일의 일부를 잠구는 것이다. 종류에는 읽기 Lock 과 쓰기 Lock이 존재합니다.
+파일전체에 대해 락을 걸면 프로세스들이 접근 할 때 성능적인 측면에서 많이 떨어질 수 있다.
+따라서 Record Locking을 이용한다.
+
+- 읽기 Lock
+> 여러 프로세스들이 같은 구역에 동시에 설정이 가능하다. 단, 쓰기 Lock 적용은 불가
+
+- 쓰기 Lock
+> 다른 프로세스들의 읽기나 쓰기 Lock을 불허한다.
+
+fcntl 을 이용
+<br>#include <fcntl.h>
+<br> int fcntl(int fileds, int cmd, struct flock *ldata);
+<br>fileds : file descriptor 를 의미한다.
+<br>cmd
+> F_GETLK : ldata를 통해 록 정보를 획득<br>F_SETLK : 록을 적용하고 즉시 리턴, 록 제거에도 사용됩니다.<br>F_SETLKW : 록 적용, 타 프로세스에 의해 봉쇄되면 sleep
+
+* 구조체 struct flock의 특징
+> 록의 유형, 기준점, 시작점, 길이, 프로세스 아이디 를 가지고 있다.
+록의 유형은 F_RDLCK: read lock, F_WRLCK: write lock, F_UNLOCK : unlock 을 의미합니다.
+
+## fcntl 을 이용한 예제
+> struct flock my_lock;<br> my_lock.l_type = F_WRLCK; <br>my_lock.l_whence = SEEK_CUR; SEEK_CUR는 현재의 read/write Pointer의 위치를 의미<br>my_lock.l_start = 0; 현재 포인터부터 시작<br>my_lock.l_len = 512; 521 byte만큼
+
+>fcntl을 이용해서 read/write Lock 을 이용 할 때,
+두 프로세스간 하나의 파일에 대해 접근 할 때 DeadLock이 발생할 수 있다. 물론 OS가 DeadLock을 Detection하는 경우도 있지만 그렇지 않는다면 아무것도 하지 않는 Zombie Process가 된다.
+
+## 초창기 IPC기법
+> 옛날 IPC기법 -> 메모리 접근이 가능했다.<br> 하지만 P1 프로세스와 P2 프로세스가 존재한다고 가정할 때, P1이 P2의 값을 바꿔서 다른 결과를 초래한다면? text section을 수정해 버린다면? 더 심각하게 OS를 건드린다면?<br> 이런 문제를 해결하기 위해서 메모리 영역을 Memory Protection 확실히 정하여 다른 영역을 접근하려고 하면 Memory Fault 또는 Segmentation Fault가 발생한다. 따라서 나온 것이 IPC 기법
+
+* PIPE기법 -> 시간이 너무 오래걸린다. 따라서,
+* System V Advanced IPC 가 등장한 것이다.
+
+초창기와 다르게 OS에게 요청하여 허용이 되는 경우에만 메모리 공유(물리 메모리 -> 논리적으로) 제어된 형태로 접근합니다.
+
+* IPC
+- file을 이용한 공유 (parent/child)PIPE와 FIFO named PIPE
+- Message Passing : kernel 내 버퍼를 Key값을 이용 (Message Queue마다 unique한 Key)
+- semaphore
+- Shared Memory
+
+* signal : IPC 가장 단순한 형태, 비동기 발생을 알려준다.
+>시그널을 받을 때, default action을 실행한다. 보통은 Termination 또는 Signal handler Process, signore : 시그널이 들어와도 무시 하지만 SIGKILL, SIGSTOP은 무시하면 안된다.
+
+> signal은 64bit의 형태로 이루어져 있는데, 비트를 설정한다. 즉 Stacking이 되지 않습니다. 쉽게 말해 event가 발생했다는 사실만을 알려준다.
+
+## IPC get 연산
+IPC 객체 생성, 기존의 IPC객체에 접근, create나 open과 유사
+- msgget,semget, shmget
+
+## IPC 제어 연산
+- msgctl, semctl, shmctl
+* msgsnd : 메시지 보내는 것, msgrcv : 메시지 받는 것
+
+
+# Message Passing
+* 메시지 : 문자나 바이트 열
+* message queue : msgget을 통해 만들어지고 메시지 전송의 통로라고 할 수 있다.
+* int msgget(key_t key, int permflags);
+return value : 메시지 큐 identifier<br>
+perflags : IPC_CREAT : 메시지 큐 생성, 기존의 메시지 큐가 있는 경우 그대로 사용
+IPC_EXCL : 단지 한 개의 메시지 큐를 생성, 큐가 존재하는 경우는 실패 -1 return
+
+userspace에서 존제하는 여러 프로세스들이 msgget을 이용하여 queue를 생성하면 kernel space에 생성된다. 1:1, 1:N, M:N 가능하다.
+Kernel은 User Address를 접근할 수 있다. Copy to User, Copy from user
+
+msg_type : Message Type이 0이면 FIFO 형식이다/msg_type > 0 일시 msg_type과 같은 메시지, 0 > : 가장 작은 msg_type을 갖는 메시지
+
+## int msgctl(int mqid, int command, struct msqid_ds * msq_stat);
+
+> 목적: 메시지 큐의 상태정보 획득 및 메시지 큐에 관련된 제한을 변경 및 큐 제거
+command : IPC_STAT: 메시지 큐의 상태정보를 msq_stat에 저장 / IPC_SET: 메시지 큐에 대한 제어변수들의 값을 지정 / IPC_RMID: 메시지 큐의 삭제
+
+# Semaphore
+* System V 세마포어와 POSIX 세마포어는 다르다는 것을 인지해야 한다.
+* operations : p(sem) or wait(sem) if(sem!=0) sem -- else 0이 되면 blocking
+* int semget(key_t key, int nsems, int permflags);<br> return 세마포어 set identifier 세마포어 내에 nsems 갯수대로 존재하며 semval마다 value가 존재
+* int semctl(int semid, int sem_num, int command, union semun ctl_arg);<br>command : 표준 IPC 기능, 단일 세마포 연산, 전체 세마포 연산 존재
+* int semop(int semid, struct sembuf *op_array, size_t num_ops);
+ <br>num_ops : sem buf 구조의 개수<br> sem_buf : sem_num: 세마포 집합내의 index , sem_op : semop이 수행하는 기능을 나타냄. 음수일 때 p() 양수일 때 v() 0 일 때 : semval의 값이 0이 될 때 까지 기다린다.
+
+
+ # Shared Memory
+
+   
