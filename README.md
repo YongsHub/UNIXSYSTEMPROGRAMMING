@@ -376,4 +376,49 @@ command : IPC_STAT: 메시지 큐의 상태정보를 msq_stat에 저장 / IPC_SE
 
  # Shared Memory
 
-   
+> 두개 이상의 프로세스가 물리적 메모리의 일부를 공유하는 기법입니다. 세 가지 IPC기법 중에 가장 효율적이고 shmget -> shmat -> shmdt 를 활용합니다.<br> 공유 메모리를 생성하기 위해서 shmget을 이용합니다.
+
+
+* int shmget(key_t key, size_t size, int permflags);<br> 를 이용해서 shared memory id를 return 받는다.
+
+* int shmat(int shmid, cosnt void *daddr, int shmflags);<br> shmget에 의해 생성된 메모리 영역을 자신의 논리적 자료 공간에 부착시킵니다.<br>daddr이 NULL일 시, 첫번째 주소공간으로 부착되며, NULL이 아니라면 지정한 위치에서부터 시작
+
+
+# Signal
+
+> signal은 software interrupts로 생각하며, 비동기 이벤트를 handling할 수 있도록 방법을 제공합니다. 커널은 프로세스에게 시그널을 보낼 수 있고, 프로세스들끼리 kill() system call을 이용하여 시그널을 보낼 수 있습니다.
+
+> 다시 한번 정리하자면, 비 동기적인 사건의 발생을 태스크(프로세스)에게 알리는 메커니즘 시그널의 종류에는 SIGKILL, SIGINT, SIGBUS, SIGUSR1 등등 .. 최대 64bit를 활용합니다.
+
+> 태스크의 시그널 처리 방법에는 Default action을 수행하거나 무시 또는 사용자 수준 시그널 처리 함수를 이용할 수 있습니다.
+
+## 시그널 관련 시스템 호출
+> kill(), sigaction(), signal() sigpending(), sigprocmask() 등등 ...
+
+SIGINT : 대표적으로 Ctrl + C로 프로세스를 종료할 때
+SIGILL : 전형적으로 실행가능 파일이 훼손되었을 때
+SIGTERM : 프로그램을 종료하는데 사용하는 포괄적인 시그널, SIGKILL과 달리 블럭 처리 무시가능
+
+디버깅에 이용하는 함수 : abort(), SIGABRT 발생, core dump -> 디버깅에 사용
+
+SIGHUP : "hang up" 사용자 터미널의 단절을 보고하기 위해
+> 시그널은 controlling process가 터미널 인터페이스와 disconnect되었을 때, 또한 시그널은 세션 리더가 종료되었을 때 생성되거나 daemon process가 터미널을 이용하려 할 때 등등.. default action 은 termination 이다.
+
+> 시그널 중에서도 SIGKILL과 SIGSTOP은 ignore이 불가능하다.
+
+## SIGUSR1 과 SIGUSR2
+* 프로그래머에 의해 사용할 수 있는 시그널들 default action은 termination 입니다.
+
+* SIGPIPE, reader pipe가 없을 때, 즉 write하려고 할 때 발생합니다.
+
+* SIGCHLD, 자식 프로세스가 종료되었을 때, default action은 ignore
+
+* SIGSTOP, 프로세스의 suspension, ignore될 수 없다.
+
+## INPUT과 OUTPUT의 management
+
+* SIGIO, SIGPOLL  input/output에 대해 데이터의 available을 의미
+> network programming에서 굉장히 중요, data가 준비가 되기 기다리는 시간, SIGIO시그널을 통해 인식하는 것이다.
+
+
+> 시그널, 64-bit field를 이용한다. <br> default action은 특별한 처리 방법을 선택하지 않은 경우, 대부분 시그널의 기본 처리 방법은 프로세스를 종료 시킨다. <br> 시그널에 대해 ignore는 SIGKILL 과 SIGSTOP 시그널을 제외한 모든 시그널을 무시할 수 있지만, 하드웨어 오류에 의해 발생한 시그널에 대해서는 주의해야 합니다.
