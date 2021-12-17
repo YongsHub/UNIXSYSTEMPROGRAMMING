@@ -422,3 +422,17 @@ SIGHUP : "hang up" 사용자 터미널의 단절을 보고하기 위해
 
 
 > 시그널, 64-bit field를 이용한다. <br> default action은 특별한 처리 방법을 선택하지 않은 경우, 대부분 시그널의 기본 처리 방법은 프로세스를 종료 시킨다. <br> 시그널에 대해 ignore는 SIGKILL 과 SIGSTOP 시그널을 제외한 모든 시그널을 무시할 수 있지만, 하드웨어 오류에 의해 발생한 시그널에 대해서는 주의해야 합니다.
+
+## 시그널 집합의 사용 예시
+* sigset_t mask1, mask2;
+* sigemptyset(&mask1);
+
+### 시그널을 추가
+* sigaddset(&mask1,SIGINT);
+* sigaddset(&mask1,SIGQUIT);
+
+### 완전히 차 있는 집합
+* sigfillset(&mask2);
+
+### 시그널을 제거
+* sigdelset(&mask2,SIGCHLD);
